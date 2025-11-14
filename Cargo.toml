@@ -1,0 +1,11 @@
+[package]
+name = "opensmtpd-filter-contentstrings"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.86.0"
+license = "GPL-3.0"
+authors = ["Alexander A. Klimov <a@kli.mov>"]
+
+[dependencies]
+mail-parser = "0.11.1"
+regex = "1.12.2"
