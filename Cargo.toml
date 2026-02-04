@@ -8,4 +8,4 @@ authors = ["Alexander A. Klimov <a@kli.mov>"]
 
 [dependencies]
 mail-parser = "0.11.1"
-regex = "1.12.2"
+regex = "1.12.3"
