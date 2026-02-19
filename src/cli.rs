@@ -116,3 +116,97 @@ fn require_lines(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn args(v: &[&str]) -> impl Iterator<Item = OsString> {
+        v.iter()
+            .map(|s| OsString::from(s))
+            .collect::<Vec<_>>()
+            .into_iter()
+    }
+
+    #[test]
+    fn no_args_yields_empty_blacklist() {
+        let (_, result, consumed) = parse_cmdline(args(&["prog"]));
+        assert_eq!(consumed, 0);
+        let matchers = result.ok().expect("expected Ok result");
+        assert_eq!(matchers.len(), 0);
+    }
+
+    #[test]
+    fn unknown_matcher_returns_error() {
+        let (_, result, _) = parse_cmdline(args(&["prog", "unknown"]));
+        assert!(matches!(result, Err(ParseArgsError::UnknownMatcher)));
+    }
+
+    #[test]
+    fn missing_file_after_literal_returns_error() {
+        let (_, result, _) = parse_cmdline(args(&["prog", "literal"]));
+        assert!(matches!(result, Err(ParseArgsError::NoFile)));
+    }
+
+    #[test]
+    fn missing_file_after_regex_returns_error() {
+        let (_, result, _) = parse_cmdline(args(&["prog", "regex"]));
+        assert!(matches!(result, Err(ParseArgsError::NoFile)));
+    }
+
+    #[test]
+    fn empty_file_arg_returns_error() {
+        let (_, result, _) = parse_cmdline(args(&["prog", "literal", ""]));
+        assert!(matches!(result, Err(ParseArgsError::EmptyName)));
+    }
+
+    #[test]
+    fn nonexistent_file_returns_bad_file() {
+        let (_, result, _) =
+            parse_cmdline(args(&["prog", "literal", "/nonexistent/path/file.txt"]));
+        assert!(matches!(result, Err(ParseArgsError::BadFile(_))));
+    }
+
+    #[test]
+    fn literal_file_loads_matchers() {
+        let path = std::env::temp_dir().join("filter_literal_matchers.txt");
+        fs::write(&path, "spam\nphishing\n").unwrap();
+        let (_, result, _) = parse_cmdline(args(&["prog", "literal", path.to_str().unwrap()]));
+        let matchers = result.ok().expect("expected Ok result");
+        assert_eq!(matchers.len(), 2);
+        assert!(matches!(&matchers[0], Matcher::Literal(s) if s == "spam"));
+        assert!(matches!(&matchers[1], Matcher::Literal(s) if s == "phishing"));
+        fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn regex_file_loads_matchers() {
+        let path = std::env::temp_dir().join("filter_regex_matchers.txt");
+        fs::write(&path, r"sp[a@]m").unwrap();
+        let (_, result, _) = parse_cmdline(args(&["prog", "regex", path.to_str().unwrap()]));
+        let matchers = result.ok().expect("expected Ok result");
+        assert_eq!(matchers.len(), 1);
+        assert!(matches!(&matchers[0], Matcher::RegExp(_)));
+        fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn invalid_regex_returns_bad_regex() {
+        let path = std::env::temp_dir().join("filter_invalid_regex.txt");
+        fs::write(&path, "[invalid").unwrap();
+        let (_, result, _) = parse_cmdline(args(&["prog", "regex", path.to_str().unwrap()]));
+        assert!(matches!(result, Err(ParseArgsError::BadRegex(_, _))));
+        fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn empty_lines_in_file_are_skipped() {
+        let path = std::env::temp_dir().join("filter_empty_lines.txt");
+        fs::write(&path, "\nspam\n\nphishing\n\n").unwrap();
+        let (_, result, _) = parse_cmdline(args(&["prog", "literal", path.to_str().unwrap()]));
+        let matchers = result.ok().expect("expected Ok result");
+        assert_eq!(matchers.len(), 2);
+        fs::remove_file(&path).ok();
+    }
+}
