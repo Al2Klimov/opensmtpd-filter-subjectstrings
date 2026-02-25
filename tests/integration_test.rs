@@ -3,7 +3,7 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 fn filter_cmd(extra_args: &[&str]) -> std::process::Child {
-    Command::new(env!("CARGO_BIN_EXE_opensmtpd-filter-contentstrings"))
+    Command::new(env!("CARGO_BIN_EXE_opensmtpd-filter-subjectstrings"))
         .args(extra_args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -98,26 +98,6 @@ fn mail_with_blacklisted_literal_in_subject_is_rejected() {
 }
 
 #[test]
-fn mail_with_blacklisted_literal_in_body_is_rejected() {
-    let path = std::env::temp_dir().join("filter_literal_body.txt");
-    fs::write(&path, "forbidden\n").unwrap();
-
-    let input = make_session_input(
-        "sess3",
-        "tok3",
-        &[
-            "From: sender@example.com",
-            "Subject: Normal subject",
-            "",
-            "This message contains forbidden content.",
-        ],
-    );
-    let (stdout, _) = run_filter(&["literal", path.to_str().unwrap()], &input);
-    assert!(stdout.contains("filter-result|sess3|tok3|reject|550 Blacklisted keyphrase found\n"));
-    fs::remove_file(&path).ok();
-}
-
-#[test]
 fn mail_without_blacklisted_literal_is_allowed() {
     let path = std::env::temp_dir().join("filter_no_match_literal.txt");
     fs::write(&path, "forbidden\n").unwrap();
@@ -134,26 +114,6 @@ fn mail_without_blacklisted_literal_is_allowed() {
     );
     let (stdout, _) = run_filter(&["literal", path.to_str().unwrap()], &input);
     assert!(stdout.contains("filter-result|sess4|tok4|proceed\n"));
-    fs::remove_file(&path).ok();
-}
-
-#[test]
-fn mail_matching_regex_blacklist_is_rejected() {
-    let path = std::env::temp_dir().join("filter_regex_blacklist.txt");
-    fs::write(&path, r"sp[a@]m").unwrap();
-
-    let input = make_session_input(
-        "sess5",
-        "tok5",
-        &[
-            "From: sender@example.com",
-            "Subject: Normal",
-            "",
-            "Buy our sp@m product today!",
-        ],
-    );
-    let (stdout, _) = run_filter(&["regex", path.to_str().unwrap()], &input);
-    assert!(stdout.contains("filter-result|sess5|tok5|reject|550 Blacklisted keyphrase found\n"));
     fs::remove_file(&path).ok();
 }
 

@@ -115,7 +115,7 @@ fn main() -> io::Result<()> {
                                 "|{}",
                                 if match sessions.get(session) {
                                     None => true,
-                                    Some(mail) => match MessageParser::new().parse(mail) {
+                                    Some(mail) => match MessageParser::new().parse_headers(mail) {
                                         None => {
                                             writeln!(std_err, "Malformed eMail:")?;
                                             std_err.write_all(mail)?;
@@ -132,16 +132,6 @@ fn main() -> io::Result<()> {
                                                 &mut allow,
                                                 &mut std_err,
                                             )?;
-
-                                            for body in mail.text_bodies() {
-                                                scan_content(
-                                                    body.text_contents(),
-                                                    "body",
-                                                    &blacklist,
-                                                    &mut allow,
-                                                    &mut std_err,
-                                                )?;
-                                            }
 
                                             allow
                                         }
